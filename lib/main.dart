@@ -2,23 +2,45 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flip_card/flip_card.dart';
+import 'package:provider/provider.dart';
+import 'package:auto_size_text/auto_size_text.dart';
+import 'spf.dart';
 import 'Quote.dart';
 
 
-void main() => runApp(MyApp());
+
+void main(){
+  runApp(
+      MyApp()
+  );
+}
+
+DarkThemeProvider darkThemeProvider = DarkThemeProvider();
 
 class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
+
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Quote Me',
-      theme: ThemeData(
-        brightness: Brightness.dark
+  Widget build(BuildContext context){
+    return ChangeNotifierProvider(
+      create: (_){
+        return darkThemeProvider;
+      },
+      child: Consumer<DarkThemeProvider>(
+        builder: (BuildContext context, value, Widget child){
+          return MaterialApp(
+            title: 'Quote Me',
+            theme: ThemeData(
+                brightness: darkThemeProvider.theme
+            ),
+            debugShowCheckedModeBanner: false,
+            home: MyHomePage(title: 'Quote Me'),
+          );
+        },
       ),
-      home: MyHomePage(title: 'Quote Me'),
     );
   }
+
 }
 
 class MyHomePage extends StatefulWidget {
@@ -42,7 +64,7 @@ class MyHomePage extends StatefulWidget {
 Future<Quote> obtainJson() async{
   String url = 'http://quotes.stormconsultancy.co.uk/random.json';
   final response = await http.get(url);
-  if (response.statusCode == 200){
+  if (response.statusCode == 200 ){
     // Successful
     var jsonObj = jsonDecode(response.body);
     return Quote.fromJson(jsonObj);
@@ -50,14 +72,18 @@ Future<Quote> obtainJson() async{
   return null;
 }
 
+bool flipFront = false;
+
 class _MyHomePageState extends State<MyHomePage> {
 
-  Future<Quote> quote;
+  Future<Quote> quote1, quote2;
+
 
   @override
   void initState(){
     super.initState();
-    quote = obtainJson();
+    quote1 = obtainJson();
+    quote2 = obtainJson();
   }
 
   @override
@@ -76,67 +102,121 @@ class _MyHomePageState extends State<MyHomePage> {
           // Here we take the value from the MyHomePage object that was created by
           // the App.build method, and use it to set our appbar title.
           title: Text(widget.title),
+          actions: <Widget>[
+            IconButton(
+              icon: Icon(Icons.color_lens),
+              onPressed:(){
+                  setState(() {
+                    darkThemeProvider.darkTheme = !darkThemeProvider.darkTheme;
+                  });
+              },
+            )
+          ],
         ),
-        body: Container(
-          child: FutureBuilder<Quote>(
-            future: quote,
-            builder: (context, snapshot){
-              if(snapshot.hasData)
-                return Container(
-                  width: double.maxFinite,
-                  height: c_height,
-                  child:
-                    Card(
-                      elevation: 5,
-                      child: Column(
-                        children: [
-                          Flexible(
-                            child: Text(
-                                snapshot.data.quote,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(fontFamily: 'IMFellDoublePica', fontSize: 32),
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(""),
-                          )
-                          ,Flexible(
-                            child: Text(
-                                "- ${snapshot.data.author}",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(fontFamily: 'BalooTamma', fontSize: 22)
-                            ),
-                          ),
-                          RaisedButton(
-                            onPressed: (){
-                              setState(() {
-                                quote = obtainJson();
-                              });
+        body:
+          Container(
+              width: double.maxFinite,
+              height: c_height,
+              padding: EdgeInsets.all(35.0),
+              child: FlipCard(
+                  onFlip: (){
+                    flipFront = !flipFront;
+                    setState(() {
+                      if(flipFront){
+                        quote1 = obtainJson();
+                      }
+                      else{
+                        quote2 = obtainJson();
+                      }
 
+                    });
+                  },
+                  front: Card(
+                      child:
+                        FutureBuilder<Quote>(
+                            future: quote1,
+                            builder: (context, snapshot){
+                              if(snapshot.hasData)
+                                return Column(
+                                  children: [
+                                    Flexible(
+                                      child: Container(
+                                        padding: EdgeInsets.all(40),
+                                        child:
+                                        AutoSizeText(
+                                          snapshot.data.quote,
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(fontFamily: 'IMFellDoublePica', fontSize: 26),
+                                          minFontSize: 20,
+                                          overflow: TextOverflow.visible,
+                                        ),
+                                      ) ,
+
+                                    ),
+                                    Expanded(
+                                      child: AutoSizeText(""),
+                                    ),
+                                    Flexible(
+                                      child: AutoSizeText(
+                                          "- ${snapshot.data.author}",
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(fontFamily: 'BalooTamma', fontSize: 22),
+                                          minFontSize: 20,
+                                          overflow: TextOverflow.visible,
+                                      ),
+                                    )
+                                  ],
+                                );
+                              else if(snapshot.hasError)
+                                return AutoSizeText("${snapshot.error}");
+                              return null;
                             },
-                            child: const Text('Refresh'),
-                            textColor: Colors.white,
-                            elevation: 5,
-                          )
-                        ],
-                      ),
-                    )
-                );
-              else if(snapshot.hasError){
-                return Text("${snapshot.error}");
-              }
-              return CircularProgressIndicator();
-            },
+                        )
+                  ),
+                  back: Card(
+                      child:
+                      FutureBuilder<Quote>(
+                        future: quote2,
+                        builder: (context, snapshot2){
+                          if(snapshot2.hasData)
+                            return Column(
+                              children: [
+                                Flexible(
+                                  child: Container(
+                                    padding: EdgeInsets.all(40),
+                                    child:
+                                    AutoSizeText(
+                                      snapshot2.data.quote,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontFamily: 'IMFellDoublePica', fontSize: 26),
+                                      minFontSize: 20,
+                                      overflow: TextOverflow.visible,
+                                    ),
+                                  ) ,
+                                ),
+                                Expanded(
+                                  child: AutoSizeText(""),
+                                )
+                                ,Flexible(
+                                  child: AutoSizeText(
+                                      "- ${snapshot2.data.author}",
+                                      textAlign: TextAlign.center,
+                                      minFontSize: 20,
+                                      maxLines: 1,
+                                      style: TextStyle(fontFamily: 'BalooTamma', fontSize: 22)
+                                  ),
+                                )
+                              ],
+                            );
+                          else if(snapshot2.hasError)
+                            return Text("${snapshot2.error}");
+                          return null;
+                        },
+                      )
+                  )
+              )
           )
-        )
       );
     }
-
-  List<Widget> _generateCards(){
-    List<Quote> quotes = new List();
-    int count = 5;
-
-
-  }
 
 }
